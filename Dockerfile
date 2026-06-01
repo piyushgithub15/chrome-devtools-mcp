@@ -35,7 +35,9 @@ RUN npm ci --ignore-scripts \
 COPY --from=build /app/build ./build
 COPY --from=build /app/LICENSE ./LICENSE
 
-RUN npx puppeteer browsers install chrome --install-deps
+RUN apt-get update \
+    && npx puppeteer browsers install chrome --install-deps \
+    && rm -rf /var/lib/apt/lists/*
 
 ENTRYPOINT ["node", "build/src/bin/chrome-devtools-mcp.js"]
 
