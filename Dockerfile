@@ -8,11 +8,13 @@ COPY package.json package-lock.json .npmrc ./
 
 ENV PUPPETEER_SKIP_DOWNLOAD=true
 
-RUN npm ci
+RUN npm ci --ignore-scripts
 
 COPY . .
 
 ENV NODE_OPTIONS=--max_old_space_size=4096
+
+RUN node scripts/prepare.ts
 
 RUN npm run bundle
 
