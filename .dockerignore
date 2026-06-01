@@ -1,0 +1,16 @@
+node_modules
+build
+.git
+.github
+coverage
+*.log
+.env
+.env.*
+.DS_Store
+*.tsbuildinfo
+tests
+skills
+docs
+gemini-extension.json
+release-please-config.json
+.release-please-manifest.json
