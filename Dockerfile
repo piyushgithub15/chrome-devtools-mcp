@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-FROM node:24-bookworm AS build
+FROM --platform=linux/amd64 node:24-bookworm AS build
 
 WORKDIR /app
 
@@ -18,7 +18,7 @@ RUN node scripts/prepare.ts
 
 RUN npm run bundle
 
-FROM node:24-bookworm AS runtime
+FROM --platform=linux/amd64 node:24-bookworm AS runtime
 
 WORKDIR /app
 
@@ -36,11 +36,13 @@ COPY --from=build /app/build ./build
 COPY --from=build /app/LICENSE ./LICENSE
 
 # Install "Chrome for Testing" into the Puppeteer cache and expose it at a
-# fixed path. The server otherwise resolves Chrome by channel and looks for a
-# branded install at /opt/google/chrome/chrome, which does not exist here.
+# fixed path. Pin linux/amd64 so ARM hosts do not get a broken linux_arm build.
 RUN apt-get update \
     && npx puppeteer browsers install chrome --install-deps \
-    && ln -sf "$(find /root/.cache/puppeteer/chrome -type f -name chrome | head -n 1)" /usr/local/bin/chrome \
+    && CHROME_BIN="$(find /root/.cache/puppeteer/chrome -path '*/chrome-linux64/chrome' -type f | head -n 1)" \
+    && test -n "$CHROME_BIN" && test -x "$CHROME_BIN" \
+    && ln -sf "$CHROME_BIN" /usr/local/bin/chrome \
+    && /usr/local/bin/chrome --version \
     && rm -rf /var/lib/apt/lists/*
 
 ENTRYPOINT ["node", "build/src/bin/chrome-devtools-mcp.js"]
