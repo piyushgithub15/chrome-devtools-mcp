@@ -1,4 +1,5 @@
 # syntax=docker/dockerfile:1
+# Build (required on Apple Silicon): docker build --platform linux/amd64 -t chrome-devtools-mcp:local .
 
 FROM node:24-bookworm AS build
 
@@ -25,18 +26,24 @@ WORKDIR /app
 ENV NODE_ENV=production \
     CI=true \
     CHROME_DEVTOOLS_MCP_NO_UPDATE_CHECKS=1 \
-    PUPPETEER_SKIP_DOWNLOAD=true
+    PUPPETEER_SKIP_DOWNLOAD=true \
+    PORT=8080 \
+    HOST=0.0.0.0
 
 COPY package.json package-lock.json .npmrc ./
 
 RUN npm ci --ignore-scripts \
+    && npm install mcp-proxy@6.5.1 --no-save \
     && npm cache clean --force
 
 COPY --from=build /app/build ./build
 COPY --from=build /app/LICENSE ./LICENSE
+COPY scripts/docker-http-entrypoint.sh /usr/local/bin/docker-http-entrypoint.sh
+
+RUN chmod +x /usr/local/bin/docker-http-entrypoint.sh
 
 # Install "Chrome for Testing" into the Puppeteer cache and expose it at a
-# fixed path. On Apple Silicon, build with: docker build --platform linux/amd64 ...
+# fixed path. Use: docker build --platform linux/amd64 ...
 RUN apt-get update \
     && npx puppeteer browsers install chrome --install-deps \
     && CHROME_BIN="$(find /root/.cache/puppeteer/chrome -path '*/chrome-linux64/chrome' -type f | head -n 1)" \
@@ -45,7 +52,7 @@ RUN apt-get update \
     && /usr/local/bin/chrome --version \
     && rm -rf /var/lib/apt/lists/*
 
-ENTRYPOINT ["node", "build/src/bin/chrome-devtools-mcp.js"]
+EXPOSE 8080
 
-# Headless + isolated profile, with Chrome flags required inside containers.
-CMD ["--headless", "--isolated", "--executablePath=/usr/local/bin/chrome", "--chrome-arg=--no-sandbox", "--chrome-arg=--disable-setuid-sandbox", "--chrome-arg=--disable-dev-shm-usage"]
+# Streamable HTTP at http://<host>:8080/mcp (stdio MCP server behind mcp-proxy).
+ENTRYPOINT ["docker-http-entrypoint.sh"]
