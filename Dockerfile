@@ -54,5 +54,5 @@ RUN apt-get update \
 
 EXPOSE 8080
 
-# Streamable HTTP at http://<host>:8080/mcp (stdio MCP server behind mcp-proxy).
+# Streamable HTTP at http://<host>:8080/mcp (stateless; new MCP+Chrome per session).
 ENTRYPOINT ["docker-http-entrypoint.sh"]

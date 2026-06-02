@@ -8,6 +8,7 @@ exec /app/node_modules/.bin/mcp-proxy \
   --port "$PORT" \
   --host "$HOST" \
   --server stream \
+  --stateless \
   --connectionTimeout "${MCP_CONNECTION_TIMEOUT:-120000}" \
   --requestTimeout "${MCP_REQUEST_TIMEOUT:-600000}" \
   -- \
