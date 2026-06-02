@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-FROM --platform=linux/amd64 node:24-bookworm AS build
+FROM node:24-bookworm AS build
 
 WORKDIR /app
 
@@ -18,7 +18,7 @@ RUN node scripts/prepare.ts
 
 RUN npm run bundle
 
-FROM --platform=linux/amd64 node:24-bookworm AS runtime
+FROM node:24-bookworm AS runtime
 
 WORKDIR /app
 
@@ -36,7 +36,7 @@ COPY --from=build /app/build ./build
 COPY --from=build /app/LICENSE ./LICENSE
 
 # Install "Chrome for Testing" into the Puppeteer cache and expose it at a
-# fixed path. Pin linux/amd64 so ARM hosts do not get a broken linux_arm build.
+# fixed path. On Apple Silicon, build with: docker build --platform linux/amd64 ...
 RUN apt-get update \
     && npx puppeteer browsers install chrome --install-deps \
     && CHROME_BIN="$(find /root/.cache/puppeteer/chrome -path '*/chrome-linux64/chrome' -type f | head -n 1)" \
