@@ -23,6 +23,12 @@ FROM node:24-bookworm AS runtime
 
 WORKDIR /app
 
+COPY package.json package-lock.json .npmrc ./
+
+RUN npm ci --ignore-scripts \
+    && npm install mcp-proxy@6.5.1 redis@5.12.1 @modelcontextprotocol/sdk@1.29.0 --no-save \
+    && npm cache clean --force
+
 ENV NODE_ENV=production \
     CI=true \
     CHROME_DEVTOOLS_MCP_NO_UPDATE_CHECKS=1 \
@@ -30,17 +36,9 @@ ENV NODE_ENV=production \
     PORT=8080 \
     HOST=0.0.0.0
 
-COPY package.json package-lock.json .npmrc ./
-
-RUN npm ci --ignore-scripts \
-    && npm install mcp-proxy@6.5.1 --no-save \
-    && npm cache clean --force
-
 COPY --from=build /app/build ./build
 COPY --from=build /app/LICENSE ./LICENSE
-COPY scripts/docker-http-entrypoint.sh /usr/local/bin/docker-http-entrypoint.sh
-
-RUN chmod +x /usr/local/bin/docker-http-entrypoint.sh
+COPY scripts/goose-http-entrypoint.mjs /app/scripts/
 
 # Install "Chrome for Testing" into the Puppeteer cache and expose it at a
 # fixed path. Use: docker build --platform linux/amd64 ...
@@ -54,5 +52,5 @@ RUN apt-get update \
 
 EXPOSE 8080
 
-# Streamable HTTP at http://<host>:8080/mcp (stateless; new MCP+Chrome per session).
-ENTRYPOINT ["docker-http-entrypoint.sh"]
+# Goose: http://<host>:8080/mcp?redis_channel=<messageId>_chrome_mcp
+ENTRYPOINT ["node", "/app/scripts/goose-http-entrypoint.mjs"]
