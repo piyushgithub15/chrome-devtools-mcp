@@ -178,6 +178,7 @@ await startHTTPServer({
   port: PORT,
   streamEndpoint: '/mcp',
   sseEndpoint: null,
+  stateless: true,
   requestTimeout: REQUEST_TIMEOUT,
 });
 
