@@ -16,7 +16,7 @@ import {InMemoryEventStore, proxyServer, startHTTPServer, tapTransport} from 'mc
 
 const PORT = Number(process.env.PORT ?? 8080);
 const HOST = process.env.HOST ?? '0.0.0.0';
-const REDIS_URL = process.env.REDIS_URL ?? 'redis://127.0.0.1:6379';
+const REDIS_URL = process.env.REDIS_URL?.trim() ?? '';
 const REQUEST_TIMEOUT = Number(process.env.MCP_REQUEST_TIMEOUT ?? 3_600_000);
 const CONNECTION_TIMEOUT = Number(process.env.MCP_CONNECTION_TIMEOUT ?? 120_000);
 
@@ -47,7 +47,7 @@ function redisChannelFromRequest(req) {
 
 /** @param {string} channel */
 async function createRedisPublisher(channel) {
-  if (!channel) {
+  if (!channel || !REDIS_URL) {
     return {publish: async () => {}, close: async () => {}};
   }
   const redis = createClient({url: REDIS_URL});
