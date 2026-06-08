@@ -22,9 +22,20 @@ const CONNECTION_TIMEOUT = Number(process.env.MCP_CONNECTION_TIMEOUT ?? 120_000)
 
 const CHROME_MCP_BIN = '/app/build/src/bin/chrome-devtools-mcp.js';
 
+// HEADFUL=1 (or true) runs Chrome with a real UI on the Xvfb virtual display
+// started by goose-http-entrypoint-xvfb.sh. This avoids the "HeadlessChrome"
+// User-Agent that many anti-bot services block. Defaults to headless.
+const HEADFUL = /^(1|true|yes)$/i.test(process.env.HEADFUL?.trim() ?? '');
+
 const CHROME_ARGS = [
   CHROME_MCP_BIN,
-  '--headless',
+  ...(HEADFUL
+    ? [
+        '--headless=false',
+        '--chrome-arg=--disable-blink-features=AutomationControlled',
+        '--ignore-default-chrome-arg=--enable-automation',
+      ]
+    : ['--headless']),
   '--isolated',
   '--executablePath=/usr/local/bin/chrome',
   '--chrome-arg=--no-sandbox',

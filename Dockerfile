@@ -41,8 +41,10 @@ COPY --from=build /app/LICENSE ./LICENSE
 COPY scripts/goose-http-entrypoint.mjs /app/scripts/
 
 # Install "Chrome for Testing" into the Puppeteer cache and expose it at a
-# fixed path. Use: docker build --platform linux/amd64 ...
+# fixed path. Xvfb is included so the server can run Chrome HEADFUL (HEADFUL=1)
+# on a virtual display. Use: docker build --platform linux/amd64 ...
 RUN apt-get update \
+    && apt-get install -y --no-install-recommends xvfb \
     && npx puppeteer browsers install chrome --install-deps \
     && CHROME_BIN="$(find /root/.cache/puppeteer/chrome -path '*/chrome-linux64/chrome' -type f | head -n 1)" \
     && test -n "$CHROME_BIN" && test -x "$CHROME_BIN" \
@@ -50,7 +52,11 @@ RUN apt-get update \
     && /usr/local/bin/chrome --version \
     && rm -rf /var/lib/apt/lists/*
 
+COPY scripts/goose-http-entrypoint-xvfb.sh /app/scripts/
+RUN chmod +x /app/scripts/goose-http-entrypoint-xvfb.sh
+
 EXPOSE 8080
 
 # Goose: http://<host>:8080/mcp?redis_channel=<messageId>_chrome_mcp
-ENTRYPOINT ["node", "/app/scripts/goose-http-entrypoint.mjs"]
+# Set HEADFUL=1 to run headed Chrome on Xvfb (real UA, fewer bot blocks).
+ENTRYPOINT ["/app/scripts/goose-http-entrypoint-xvfb.sh"]
