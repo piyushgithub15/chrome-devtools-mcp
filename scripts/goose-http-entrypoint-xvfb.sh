@@ -36,12 +36,21 @@ CHROME_FLAGS="--headless"
 PROXY_ARG=""
 PROXY_AUTH_ARGS=""
 if [ -n "${PROXY_SERVER:-}" ]; then
-  # Extract scheme+host:port (strip credentials if present).
-  # e.g. "http://user:pass@1.2.3.4:1234" -> "http://1.2.3.4:1234"
-  #      "1.2.3.4:1234"                  -> "1.2.3.4:1234"
-  PROXY_HOSTPORT="$(printf '%s' "${PROXY_SERVER}" | sed 's|^\([a-z5]*://\)\([^@]*@\)\(.*\)|\1\3|')"
+  # Extract host:port only (strip scheme and credentials).
+  # Chrome's --proxy-server is strict: it wants "host:port" or "socks5://host:port",
+  # NOT "http://user:pass@host:port/". Strip everything but host:port.
+  # e.g. "http://user:pass@1.2.3.4:1234/"  -> "1.2.3.4:1234"
+  #      "socks5://user:pass@1.2.3.4:1234" -> "socks5://1.2.3.4:1234"
+  #      "1.2.3.4:1234"                    -> "1.2.3.4:1234"
+  _SCHEME="$(printf '%s' "${PROXY_SERVER}" | sed -n 's|^\([a-z0-9+]*\)://.*|\1|p')"
+  _HOSTPORT="$(printf '%s' "${PROXY_SERVER}" | sed 's|^[a-z0-9+]*://[^@]*@||; s|^[a-z0-9+]*://||; s|[/]*$||')"
+  # For SOCKS5 preserve the scheme prefix; for http/https just use host:port.
+  case "${_SCHEME}" in
+    socks5|socks4) PROXY_HOSTPORT="${_SCHEME}://${_HOSTPORT}" ;;
+    *)             PROXY_HOSTPORT="${_HOSTPORT}" ;;
+  esac
   # Extract credentials: "user:pass" or empty.
-  PROXY_CREDS="$(printf '%s' "${PROXY_SERVER}" | sed -n 's|^[a-z5]*://\([^@]*\)@.*|\1|p')"
+  PROXY_CREDS="$(printf '%s' "${PROXY_SERVER}" | sed -n 's|^[a-z0-9+]*://\([^@]*\)@.*|\1|p')"
 
   echo "[entrypoint] routing Chrome through proxy: ${PROXY_HOSTPORT}"
   PROXY_ARG="--proxy-server=${PROXY_HOSTPORT}"   # dedicated CLI option, not --chrome-arg
