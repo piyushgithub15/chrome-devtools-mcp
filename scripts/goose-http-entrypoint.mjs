@@ -1,5 +1,11 @@
 #!/usr/bin/env node
 /**
+ * @license
+ * Copyright 2026 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/**
  * HTTP entrypoint for on-demand-goose-execution.
  *
  * Streamable MCP at /mcp?redis_channel=<messageId>_chrome_mcp
@@ -8,11 +14,11 @@
  * framing, not line-delimited JSON).
  */
 
-import {createClient} from 'redis';
 import {Client} from '@modelcontextprotocol/sdk/client/index.js';
 import {StdioClientTransport} from '@modelcontextprotocol/sdk/client/stdio.js';
 import {Server} from '@modelcontextprotocol/sdk/server/index.js';
 import {InMemoryEventStore, proxyServer, startHTTPServer, tapTransport} from 'mcp-proxy';
+import {createClient} from 'redis';
 
 const PORT = Number(process.env.PORT ?? 8080);
 const HOST = process.env.HOST ?? '0.0.0.0';

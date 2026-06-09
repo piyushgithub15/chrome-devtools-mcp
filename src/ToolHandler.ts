@@ -17,7 +17,7 @@ import {zod} from './third_party/index.js';
 import type {ToolCategory} from './tools/categories.js';
 import {labels, OFF_BY_DEFAULT_CATEGORIES} from './tools/categories.js';
 import type {DefinedPageTool, ToolDefinition} from './tools/ToolDefinition.js';
-import {pageIdSchema} from './tools/ToolDefinition.js';
+import {pageIdSchema, sessionIdSchema} from './tools/ToolDefinition.js';
 
 export function buildFlag(category: ToolCategory) {
   return `category${category.charAt(0).toUpperCase() + category.slice(1)}`;
@@ -151,20 +151,24 @@ export class ToolHandler {
   constructor(
     private readonly tool: ToolDefinition | DefinedPageTool,
     private readonly serverArgs: ReturnType<typeof parseArguments>,
-    private readonly getContext: () => Promise<McpContext>,
-    private readonly toolMutex: Mutex,
+    private readonly getContext: (sessionId?: string) => Promise<McpContext>,
+    private readonly getMutex: (sessionId?: string) => Mutex,
   ) {
     const {disabled, reason} = getToolStatusInfo(tool, serverArgs);
     this.disabledReason = reason;
     this.shouldRegister = !(disabled && !serverArgs.viaCli);
 
-    this.inputSchema =
+    let schema: zod.ZodRawShape =
       'pageScoped' in tool &&
       tool.pageScoped &&
       serverArgs.experimentalPageIdRouting &&
       !serverArgs.slim
         ? {...pageIdSchema, ...tool.schema}
         : tool.schema;
+    if (serverArgs.sessionIdRouting) {
+      schema = {...sessionIdSchema, ...schema};
+    }
+    this.inputSchema = schema;
     this.registeredInputSchema = zod.object(this.inputSchema).passthrough();
   }
 
@@ -204,14 +208,18 @@ export class ToolHandler {
       };
     }
 
-    const guard = await this.toolMutex.acquire();
+    const sessionId =
+      this.serverArgs.sessionIdRouting && typeof params.sessionId === 'string'
+        ? params.sessionId
+        : undefined;
+    const guard = await this.getMutex(sessionId).acquire();
     const startTime = Date.now();
     let success = false;
     try {
       logger(
         `${this.tool.name} request: ${JSON.stringify(params, null, '  ')}`,
       );
-      const context = await this.getContext();
+      const context = await this.getContext(sessionId);
       logger(`${this.tool.name} context: resolved`);
       await context.detectOpenDevToolsWindows();
       const response = this.serverArgs.slim

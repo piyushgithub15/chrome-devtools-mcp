@@ -8,7 +8,6 @@ import '../polyfill.js';
 
 import process from 'node:process';
 
-import {closeBrowser} from '../browser.js';
 import {createMcpServer, logDisclaimers} from '../index.js';
 import {logger, saveLogsToFile} from '../logger.js';
 import {ClearcutLogger} from '../telemetry/ClearcutLogger.js';
@@ -37,6 +36,7 @@ if (process.env['CHROME_DEVTOOLS_MCP_CRASH_ON_UNCAUGHT'] !== 'true') {
 // transport to signal exit) and on standard termination signals. Without
 // this, an active Chrome subprocess keeps the Node event loop ref'd after
 // stdin closes and the server hangs until something else kills it.
+const lifecycle: {close?: () => Promise<void>} = {};
 let shuttingDown = false;
 async function shutdown(reason: string): Promise<void> {
   if (shuttingDown) {
@@ -52,7 +52,7 @@ async function shutdown(reason: string): Promise<void> {
     logger('Shutdown timeout exceeded, forcing exit');
     process.exit(0);
   }, 10000).unref();
-  await closeBrowser();
+  await lifecycle.close?.();
   process.exit(0);
 }
 process.stdin.on('end', () => {
@@ -72,9 +72,10 @@ process.on('SIGHUP', () => {
 });
 
 logger(`Starting Chrome DevTools MCP Server v${VERSION}`);
-const {server} = await createMcpServer(args, {
+const {server, close} = await createMcpServer(args, {
   logFile,
 });
+lifecycle.close = close;
 const transport = new StdioServerTransport();
 await server.connect(transport);
 logger('Chrome DevTools MCP Server connected');

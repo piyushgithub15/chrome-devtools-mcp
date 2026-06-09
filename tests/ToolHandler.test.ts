@@ -58,7 +58,7 @@ describe('ToolHandler', () => {
       tool,
       serverArgs,
       async () => mockContext,
-      toolMutex,
+      () => toolMutex,
     );
 
     assert.strictEqual(toolHandler.shouldRegister, true);
@@ -97,7 +97,7 @@ describe('ToolHandler', () => {
       tool,
       serverArgs,
       async () => mockContext,
-      toolMutex,
+      () => toolMutex,
     );
 
     assert.strictEqual(toolHandler.shouldRegister, true);
@@ -140,7 +140,7 @@ describe('ToolHandler', () => {
       tool,
       serverArgs,
       async () => mockContext,
-      toolMutex,
+      () => toolMutex,
     );
 
     const params = {url: 'https://example.com', description: 'open the page'};
@@ -188,7 +188,7 @@ describe('ToolHandler', () => {
       tool,
       serverArgs,
       async () => mockContext,
-      toolMutex,
+      () => toolMutex,
     );
 
     assert.strictEqual(toolHandler.shouldRegister, false);

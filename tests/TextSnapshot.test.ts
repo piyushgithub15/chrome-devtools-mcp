@@ -15,9 +15,11 @@ import type {TextSnapshotNode} from '../src/types.js';
 import {html, withMcpContext} from './utils.js';
 
 describe('TextSnapshot', () => {
+  const DEFAULT_TIMEOUT = TextSnapshot.snapshotTimeoutMs;
   afterEach(() => {
     sinon.restore();
     TextSnapshot.resetCounter();
+    TextSnapshot.snapshotTimeoutMs = DEFAULT_TIMEOUT;
   });
 
   it('creates a snapshot', async () => {
@@ -39,6 +41,70 @@ describe('TextSnapshot', () => {
         }
       }
       assert.ok(foundButton, 'Button should be in the snapshot');
+    });
+  });
+
+  it('retries without iframes when the iframe-inclusive snapshot hangs', async () => {
+    await withMcpContext(async (_response, context) => {
+      const page = context.getSelectedMcpPage();
+      await page.pptrPage.setContent(html`<button>Click me</button>`);
+
+      TextSnapshot.snapshotTimeoutMs = 50;
+      const realSnapshot = page.pptrPage.accessibility.snapshot.bind(
+        page.pptrPage.accessibility,
+      );
+
+      const stub = sinon
+        .stub(page.pptrPage.accessibility, 'snapshot')
+        .callsFake(async options => {
+          if (options?.includeIframes) {
+            // Simulate a hang on the iframe-inclusive walk.
+            return await new Promise(() => {});
+          }
+          return await realSnapshot(options);
+        });
+
+      const snapshot = await TextSnapshot.create(page);
+
+      assert.ok(snapshot, 'Snapshot should still be created via the retry');
+      assert.strictEqual(stub.callCount, 2, 'Should retry exactly once');
+      assert.strictEqual(stub.firstCall.args[0]?.includeIframes, true);
+      assert.strictEqual(stub.secondCall.args[0]?.includeIframes, false);
+
+      let foundButton = false;
+      for (const node of snapshot.idToNode.values()) {
+        if (node.role === 'button' && node.name === 'Click me') {
+          foundButton = true;
+          break;
+        }
+      }
+      assert.ok(foundButton, 'Button should be in the fallback snapshot');
+    });
+  });
+
+  it('retries without iframes when the iframe-inclusive snapshot throws', async () => {
+    await withMcpContext(async (_response, context) => {
+      const page = context.getSelectedMcpPage();
+      await page.pptrPage.setContent(html`<button>Click me</button>`);
+
+      const realSnapshot = page.pptrPage.accessibility.snapshot.bind(
+        page.pptrPage.accessibility,
+      );
+
+      const stub = sinon
+        .stub(page.pptrPage.accessibility, 'snapshot')
+        .callsFake(async options => {
+          if (options?.includeIframes) {
+            throw new Error('boom');
+          }
+          return await realSnapshot(options);
+        });
+
+      const snapshot = await TextSnapshot.create(page);
+
+      assert.ok(snapshot);
+      assert.strictEqual(stub.callCount, 2);
+      assert.strictEqual(stub.secondCall.args[0]?.includeIframes, false);
     });
   });
 

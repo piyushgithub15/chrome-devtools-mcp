@@ -17,8 +17,55 @@ import type {TextSnapshotNode} from './types.js';
 export class TextSnapshot {
   static nextSnapshotId = 1;
 
+  // Upper bound for a single `accessibility.snapshot` CDP call. Heavy pages
+  // (e.g. ones embedding slow cross-origin ad iframes) can make the recursive
+  // AX-tree walk hang indefinitely when `includeIframes` is set. Without this
+  // bound the tool call never returns, the global tool mutex is never
+  // released, and every subsequent MCP request blocks forever. Exposed as a
+  // mutable static so tests can shrink it.
+  static snapshotTimeoutMs = 10_000;
+
   static resetCounter() {
     TextSnapshot.nextSnapshotId = 1;
+  }
+
+  // Take the a11y snapshot with a hard timeout. If the iframe-inclusive walk
+  // times out (the common cause of hangs on heavy pages), retry once without
+  // iframes before giving up so the caller still gets a usable main-frame tree.
+  static async #snapshotWithTimeout(
+    page: McpPage,
+    verbose: boolean,
+  ): Promise<SerializedAXNode | null> {
+    const run = (includeIframes: boolean) => {
+      let timeoutId: ReturnType<typeof setTimeout> | undefined;
+      const timeout = new Promise<never>((_, reject) => {
+        timeoutId = setTimeout(() => {
+          reject(
+            new Error(
+              `Accessibility snapshot timed out after ${TextSnapshot.snapshotTimeoutMs}ms (includeIframes=${includeIframes})`,
+            ),
+          );
+        }, TextSnapshot.snapshotTimeoutMs);
+      });
+      return Promise.race([
+        page.pptrPage.accessibility.snapshot({
+          includeIframes,
+          interestingOnly: !verbose,
+        }),
+        timeout,
+      ]).finally(() => {
+        if (timeoutId !== undefined) {
+          clearTimeout(timeoutId);
+        }
+      });
+    };
+
+    try {
+      return await run(true);
+    } catch (error) {
+      logger('Accessibility snapshot with iframes failed, retrying without', error);
+      return await run(false);
+    }
   }
 
   root: TextSnapshotNode;
@@ -53,10 +100,7 @@ export class TextSnapshot {
     } = {},
   ): Promise<TextSnapshot> {
     const verbose = options.verbose ?? false;
-    const rootNode = await page.pptrPage.accessibility.snapshot({
-      includeIframes: true,
-      interestingOnly: !verbose,
-    });
+    const rootNode = await TextSnapshot.#snapshotWithTimeout(page, verbose);
     if (!rootNode) {
       throw new Error('Failed to create accessibility snapshot');
     }

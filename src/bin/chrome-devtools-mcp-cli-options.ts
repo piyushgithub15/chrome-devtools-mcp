@@ -160,6 +160,11 @@ export const cliOptions = {
     describe:
       'Whether to expose pageId on page-scoped tools and route requests by page ID (useful for concurrent agent sessions).',
   },
+  sessionIdRouting: {
+    type: 'boolean',
+    describe:
+      'Require a sessionId argument on every tool and route each call to a dedicated browser for that sessionId. Each distinct sessionId gets its own isolated browser, auto-closed after MCP_SESSION_MAX_LIFETIME_MS (default 10 minutes).',
+  },
   experimentalDevtools: {
     type: 'boolean',
     describe: 'Whether to enable automation over DevTools targets',

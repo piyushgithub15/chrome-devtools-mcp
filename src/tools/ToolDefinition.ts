@@ -371,6 +371,25 @@ export const pageIdSchema = {
   pageId: zod.number().describe('Targets a specific page by ID.'),
 };
 
+export const sessionIdSchema = {
+  sessionId: zod
+    .string()
+    .min(1)
+    .describe(
+      [
+        'Identifies the browser session. Each distinct value uses its own',
+        'isolated browser instance (separate pages, cookies and login state).',
+        'Pick ONE sessionId at the start of a task and reuse the exact same',
+        'value for every tool call in that task, so navigation, logins and',
+        'open pages persist across steps. By default use one sessionId per',
+        'conversation. Do NOT generate a new sessionId per call (that starts a',
+        'fresh empty browser and loses all prior state). Only use a different',
+        'sessionId for independent work that should run in an isolated browser',
+        '(e.g. separate parallel jobs or different users).',
+      ].join(' '),
+    ),
+};
+
 export const timeoutSchema = {
   timeout: zod
     .number()
