@@ -14,8 +14,16 @@
 #
 # PROXY_SERVER routes Chrome traffic through a proxy (e.g. a residential proxy)
 # to get a non-datacenter IP. Needed for sites that edge-block datacenter IPs
-# (e.g. MakeMyTrip served a blank "200-OK" stub from a cloud IP). Format matches
-# Chrome's --proxy-server, e.g. "http://user:pass@host:port" or "host:port".
+# (e.g. MakeMyTrip served a blank "200-OK" stub from a cloud IP).
+#
+# Accepted formats (all equivalent):
+#   http://user:pass@host:port   — HTTP proxy with credentials
+#   socks5://user:pass@host:port — SOCKS5 proxy with credentials
+#   host:port                    — proxy without credentials (or IP-whitelisted)
+#
+# Chrome's --proxy-server does NOT support inline credentials; this script
+# parses them out and passes them via --proxy-username / --proxy-password so
+# that Puppeteer's page.authenticate() can handle 407 challenges automatically.
 set -e
 
 PORT="${PORT:-8080}"
@@ -26,9 +34,24 @@ CHROME_FLAGS="--headless"
 
 # Optional proxy (residential IP) for anti-bot-heavy sites.
 PROXY_ARG=""
+PROXY_AUTH_ARGS=""
 if [ -n "${PROXY_SERVER:-}" ]; then
-  echo "[entrypoint] routing Chrome through proxy: ${PROXY_SERVER}"
-  PROXY_ARG="--chrome-arg=--proxy-server=${PROXY_SERVER}"
+  # Extract scheme+host:port (strip credentials if present).
+  # e.g. "http://user:pass@1.2.3.4:1234" -> "http://1.2.3.4:1234"
+  #      "1.2.3.4:1234"                  -> "1.2.3.4:1234"
+  PROXY_HOSTPORT="$(printf '%s' "${PROXY_SERVER}" | sed 's|^\([a-z5]*://\)\([^@]*@\)\(.*\)|\1\3|')"
+  # Extract credentials: "user:pass" or empty.
+  PROXY_CREDS="$(printf '%s' "${PROXY_SERVER}" | sed -n 's|^[a-z5]*://\([^@]*\)@.*|\1|p')"
+
+  echo "[entrypoint] routing Chrome through proxy: ${PROXY_HOSTPORT}"
+  PROXY_ARG="--proxy-server=${PROXY_HOSTPORT}"   # dedicated CLI option, not --chrome-arg
+
+  if [ -n "${PROXY_CREDS}" ]; then
+    PROXY_USER="$(printf '%s' "${PROXY_CREDS}" | cut -d: -f1)"
+    PROXY_PASS="$(printf '%s' "${PROXY_CREDS}" | cut -d: -f2-)"
+    echo "[entrypoint] proxy credentials present for user: ${PROXY_USER}"
+    PROXY_AUTH_ARGS="--proxy-username=${PROXY_USER} --proxy-password=${PROXY_PASS}"
+  fi
 fi
 
 case "${HEADFUL:-}" in
@@ -47,7 +70,8 @@ esac
 
 echo "[entrypoint] starting mcp-proxy (single shared browser) on ${HOST}:${PORT}/mcp"
 
-# Word-splitting of $CHROME_FLAGS / $PROXY_ARG is intentional (multiple flags, none contain spaces).
+# Word-splitting of $CHROME_FLAGS / $PROXY_ARG / $PROXY_AUTH_ARGS is intentional
+# (multiple flags; none contain spaces).
 # shellcheck disable=SC2086
 exec /app/node_modules/.bin/mcp-proxy \
   --port "$PORT" \
@@ -60,6 +84,7 @@ exec /app/node_modules/.bin/mcp-proxy \
   node /app/build/src/bin/chrome-devtools-mcp.js \
   $CHROME_FLAGS \
   $PROXY_ARG \
+  $PROXY_AUTH_ARGS \
   --isolated \
   --executablePath=/usr/local/bin/chrome \
   --chrome-arg=--no-sandbox \

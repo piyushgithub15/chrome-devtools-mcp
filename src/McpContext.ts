@@ -60,6 +60,8 @@ interface McpContextOptions {
   experimentalIncludeAllPages?: boolean;
   // Whether CrUX data should be fetched.
   performanceCrux: boolean;
+  // Credentials for proxy authentication (407 Proxy-Authenticate challenges).
+  proxyCredentials?: {username: string; password: string};
 }
 
 const DEFAULT_TIMEOUT = 5_000;
@@ -135,6 +137,11 @@ export class McpContext implements Context {
     await this.#networkCollector.init(pages);
     await this.#consoleCollector.init(pages);
     await this.#devtoolsUniverseManager.init(pages);
+    if (this.#options.proxyCredentials) {
+      for (const page of pages) {
+        await page.authenticate(this.#options.proxyCredentials);
+      }
+    }
   }
 
   dispose() {
@@ -301,6 +308,9 @@ export class McpContext implements Context {
       page = await ctx.newPage();
     } else {
       page = await this.browser.newPage({background});
+    }
+    if (this.#options.proxyCredentials) {
+      await page.authenticate(this.#options.proxyCredentials);
     }
     await this.createPagesSnapshot();
     this.selectPage(this.#getMcpPage(page));

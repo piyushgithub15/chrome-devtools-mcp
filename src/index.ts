@@ -129,10 +129,18 @@ export async function createMcpServer(
           });
 
     if (context?.browser !== browser) {
+      const proxyCredentials =
+        serverArgs.proxyUsername && serverArgs.proxyPassword
+          ? {
+              username: String(serverArgs.proxyUsername),
+              password: String(serverArgs.proxyPassword),
+            }
+          : undefined;
       context = await McpContext.from(browser, logger, {
         experimentalDevToolsDebugging: devtools,
         experimentalIncludeAllPages: serverArgs.experimentalIncludeAllPages,
         performanceCrux: serverArgs.performanceCrux,
+        proxyCredentials,
       });
       await updateRoots();
     }

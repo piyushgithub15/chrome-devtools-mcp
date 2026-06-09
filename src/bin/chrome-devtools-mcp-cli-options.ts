@@ -143,6 +143,14 @@ export const cliOptions = {
     type: 'string',
     description: `Proxy server configuration for Chrome passed as --proxy-server when launching the browser. See https://www.chromium.org/developers/design-documents/network-settings/ for details.`,
   },
+  proxyUsername: {
+    type: 'string',
+    description: `Username for proxy authentication (407 Proxy-Authenticate challenges). Used together with --proxy-password.`,
+  },
+  proxyPassword: {
+    type: 'string',
+    description: `Password for proxy authentication (407 Proxy-Authenticate challenges). Used together with --proxy-username.`,
+  },
   acceptInsecureCerts: {
     type: 'boolean',
     description: `If enabled, ignores errors relative to self-signed and expired certificates. Use with caution.`,
