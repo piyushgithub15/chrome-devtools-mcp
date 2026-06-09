@@ -11,6 +11,11 @@
 #
 # HEADFUL=1 runs headed Chrome on an Xvfb virtual display (real UA, fewer bot
 # blocks). Unset/0 runs headless.
+#
+# PROXY_SERVER routes Chrome traffic through a proxy (e.g. a residential proxy)
+# to get a non-datacenter IP. Needed for sites that edge-block datacenter IPs
+# (e.g. MakeMyTrip served a blank "200-OK" stub from a cloud IP). Format matches
+# Chrome's --proxy-server, e.g. "http://user:pass@host:port" or "host:port".
 set -e
 
 PORT="${PORT:-8080}"
@@ -18,6 +23,13 @@ HOST="${HOST:-0.0.0.0}"
 
 # Default headless launch flags.
 CHROME_FLAGS="--headless"
+
+# Optional proxy (residential IP) for anti-bot-heavy sites.
+PROXY_ARG=""
+if [ -n "${PROXY_SERVER:-}" ]; then
+  echo "[entrypoint] routing Chrome through proxy: ${PROXY_SERVER}"
+  PROXY_ARG="--chrome-arg=--proxy-server=${PROXY_SERVER}"
+fi
 
 case "${HEADFUL:-}" in
   1 | true | yes | TRUE | YES)
@@ -35,7 +47,7 @@ esac
 
 echo "[entrypoint] starting mcp-proxy (single shared browser) on ${HOST}:${PORT}/mcp"
 
-# Word-splitting of $CHROME_FLAGS is intentional (multiple flags, none contain spaces).
+# Word-splitting of $CHROME_FLAGS / $PROXY_ARG is intentional (multiple flags, none contain spaces).
 # shellcheck disable=SC2086
 exec /app/node_modules/.bin/mcp-proxy \
   --port "$PORT" \
@@ -47,6 +59,7 @@ exec /app/node_modules/.bin/mcp-proxy \
   -- \
   node /app/build/src/bin/chrome-devtools-mcp.js \
   $CHROME_FLAGS \
+  $PROXY_ARG \
   --isolated \
   --executablePath=/usr/local/bin/chrome \
   --chrome-arg=--no-sandbox \
