@@ -189,7 +189,13 @@ await startHTTPServer({
   port: PORT,
   streamEndpoint: '/mcp',
   sseEndpoint: null,
-  stateless: true,
+  // Session-stateful: createServer (which spawns a Chrome) runs ONCE per MCP
+  // session and is reused for all that session's tool calls, so navigation
+  // persists across navigate -> snapshot -> click. With stateless:true the
+  // server spawned a fresh Chrome per request, leaving every call on
+  // about:blank. Requires the fronting proxy to forward the Mcp-Session-Id
+  // header so requests stick to the same session/pod.
+  stateless: false,
   requestTimeout: REQUEST_TIMEOUT,
 });
 
