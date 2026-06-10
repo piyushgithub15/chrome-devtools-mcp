@@ -163,7 +163,7 @@ export const cliOptions = {
   sessionIdRouting: {
     type: 'boolean',
     describe:
-      'Require a sessionId argument on every tool and route each call to a dedicated browser for that sessionId. Each distinct sessionId gets its own isolated browser, auto-closed after MCP_SESSION_MAX_LIFETIME_MS (default 10 minutes).',
+      'Require a sessionId argument on every tool and route each call to a dedicated browser for that sessionId. Each distinct sessionId gets its own isolated browser, auto-closed after MCP_SESSION_MAX_LIFETIME_MS (default 25 minutes).',
   },
   experimentalDevtools: {
     type: 'boolean',

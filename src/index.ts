@@ -35,7 +35,7 @@ export {SessionManager} from './SessionManager.js';
 
 type ServerArgs = ReturnType<typeof parseArguments>;
 
-const DEFAULT_SESSION_MAX_LIFETIME_MS = 600_000;
+const DEFAULT_SESSION_MAX_LIFETIME_MS = 1_500_000;
 
 /**
  * Launches a new Chrome (or attaches to an existing one) according to the CLI
